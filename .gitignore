@@ -1,2 +1,5 @@
 .env
 memory/
+
+lambda-deployment.zip
+lambda-package/

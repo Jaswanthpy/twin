@@ -1,0 +1,21 @@
+{
+    "full_name": "G Jaswanth Reddy",
+    "name": "Jaswanth",
+    "current_role": "Software Engineer",
+    "location": "Hyderabad, India",
+    "email": "jaswanthreddy.2003@gmail.com",
+    "linkedin": "https://www.linkedin.com/in/jaswanth-reddy-91769b22b/",
+    "specialties": [
+      "Web Development",
+      "Mobile Development",
+      "Backend Development"
+    ],
+    "years_experience": 1,
+    "education": [
+      {
+        "degree": "Bachelor of Technology in Computer Science and Engineering",
+        "institution": "Sri Venkateswara University College of Engineering and Technology",
+        "year": "2023"
+      }
+    ]
+  }

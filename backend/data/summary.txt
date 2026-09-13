@@ -1,0 +1,4 @@
+I am a Software Engineer with 7 of experience in System administration. 
+My expertise includes AWS, CI/CD.
+
+Currently, I'm focused on Serverless.
