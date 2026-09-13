@@ -3,3 +3,5 @@ memory/
 
 lambda-deployment.zip
 lambda-package/
+
+backend/__pycache__/

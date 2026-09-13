@@ -5,6 +5,8 @@ import os
 from dotenv import load_dotenv
 from typing import Optional, List, Dict
 import json
+import logging
+import time
 import uuid
 from datetime import datetime
 import boto3
@@ -13,6 +15,15 @@ from context import prompt
 
 # Load environment variables
 load_dotenv()
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logger = logging.getLogger("twin")
+logger.setLevel(LOG_LEVEL)
+if not logging.getLogger().handlers:
+    # Lambda's runtime installs a root handler; this is only for local uvicorn runs
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logger.addHandler(_handler)
 
 app = FastAPI()
 
@@ -27,9 +38,10 @@ app.add_middleware(
 )
 
 # Initialize Bedrock client - see Q42 on https://edwarddonner.com/faq if the Region gives you problems
+AWS_REGION = os.getenv("DEFAULT_AWS_REGION", "us-east-1")
 bedrock_client = boto3.client(
     service_name="bedrock-runtime", 
-    region_name=os.getenv("DEFAULT_AWS_REGION", "us-east-1")
+    region_name=AWS_REGION
 )
 
 # Bedrock model selection - see Q42 on https://edwarddonner.com/faq for more
@@ -43,6 +55,14 @@ MEMORY_DIR = os.getenv("MEMORY_DIR", "../memory")
 # Initialize S3 client if needed
 if USE_S3:
     s3_client = boto3.client("s3")
+
+logger.info(
+    "Cold start: model=%s region=%s use_s3=%s bucket=%s",
+    BEDROCK_MODEL_ID,
+    AWS_REGION,
+    USE_S3,
+    S3_BUCKET,
+)
 
 
 # Request/Response models
@@ -129,6 +149,9 @@ def call_bedrock(conversation: List[Dict], user_message: str) -> str:
         "content": [{"text": user_message}]
     })
     
+    started = time.perf_counter()
+    logger.info("Bedrock request: model=%s messages=%d", BEDROCK_MODEL_ID, len(messages))
+
     try:
         # Call Bedrock using the converse API
         response = bedrock_client.converse(
@@ -140,7 +163,19 @@ def call_bedrock(conversation: List[Dict], user_message: str) -> str:
                 "topP": 0.9
             }
         )
-        
+
+        usage = response.get("usage", {})
+        logger.info(
+            "Bedrock response: model=%s stop_reason=%s input_tokens=%s output_tokens=%s "
+            "bedrock_latency_ms=%s round_trip_ms=%.0f",
+            BEDROCK_MODEL_ID,
+            response.get("stopReason"),
+            usage.get("inputTokens"),
+            usage.get("outputTokens"),
+            response.get("metrics", {}).get("latencyMs"),
+            (time.perf_counter() - started) * 1000,
+        )
+
         # Extract the response text
         return response["output"]["message"]["content"][0]["text"]
         
@@ -148,13 +183,13 @@ def call_bedrock(conversation: List[Dict], user_message: str) -> str:
         error_code = e.response['Error']['Code']
         if error_code == 'ValidationException':
             # Handle message format issues
-            print(f"Bedrock validation error: {e}")
+            logger.error("Bedrock validation error: model=%s %s", BEDROCK_MODEL_ID, e)
             raise HTTPException(status_code=400, detail="Invalid message format for Bedrock")
         elif error_code == 'AccessDeniedException':
-            print(f"Bedrock access denied: {e}")
+            logger.error("Bedrock access denied: model=%s %s", BEDROCK_MODEL_ID, e)
             raise HTTPException(status_code=403, detail="Access denied to Bedrock model")
         else:
-            print(f"Bedrock error: {e}")
+            logger.error("Bedrock error: model=%s %s", BEDROCK_MODEL_ID, e)
             raise HTTPException(status_code=500, detail=f"Bedrock error: {str(e)}")
 
 
@@ -182,6 +217,7 @@ async def chat(request: ChatRequest):
     try:
         # Generate session ID if not provided
         session_id = request.session_id or str(uuid.uuid4())
+        logger.info("Chat request: session=%s model=%s", session_id, BEDROCK_MODEL_ID)
 
         # Load conversation history
         conversation = load_conversation(session_id)
@@ -209,7 +245,7 @@ async def chat(request: ChatRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error in chat endpoint: {str(e)}")
+        logger.exception("Error in chat endpoint")
         raise HTTPException(status_code=500, detail=str(e))
 
 
