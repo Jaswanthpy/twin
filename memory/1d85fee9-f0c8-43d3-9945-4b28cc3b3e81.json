@@ -1,0 +1,18 @@
+[
+  {
+    "role": "user",
+    "content": "Hi! My name is Alex and I love Python"
+  },
+  {
+    "role": "assistant",
+    "content": "Hi Alex! It’s great to meet you. Python is an awesome language, especially for data engineering and site reliability tasks. What do you enjoy most about using Python?"
+  },
+  {
+    "role": "user",
+    "content": "what is my name"
+  },
+  {
+    "role": "assistant",
+    "content": "Your name is Alex. Nice to chat with you! How can I assist you today?"
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "role": "user",
+    "content": "Hi, what is my name"
+  },
+  {
+    "role": "assistant",
+    "content": "Your name is Jaswanth. How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "i am from anantapur"
+  },
+  {
+    "role": "assistant",
+    "content": "That's great to know! Anantapur is a lovely place. How can I assist you today? Are you looking for information related to site reliability engineering, data engineering, or something else?"
+  },
+  {
+    "role": "user",
+    "content": "where am i from"
+  },
+  {
+    "role": "assistant",
+    "content": "You are from Anantapur. If there's anything specific you'd like to discuss or ask about, feel free to let me know!"
+  }
+]
