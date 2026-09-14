@@ -4,6 +4,13 @@ set -e
 ENVIRONMENT=${1:-dev}          # dev | test | prod
 PROJECT_NAME=${2:-twin}
 
+EXPECTED_ACCOUNT="221759618907"
+ACTUAL_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+if [ "$ACTUAL_ACCOUNT" != "$EXPECTED_ACCOUNT" ]; then
+  echo "❌ Wrong AWS account: $ACTUAL_ACCOUNT (expected $EXPECTED_ACCOUNT)" >&2
+  exit 1
+fi
+
 echo "🚀 Deploying ${PROJECT_NAME} to ${ENVIRONMENT}..."
 
 # 1. Build Lambda package

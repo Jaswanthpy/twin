@@ -51,3 +51,9 @@ variable "root_domain" {
   type        = string
   default     = ""
 }
+
+variable "aws_profile" {
+  description = "AWS profile to use for Terraform"
+  type        = string
+  default     = "twin"
+}
