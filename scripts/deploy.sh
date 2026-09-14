@@ -5,9 +5,17 @@ ENVIRONMENT=${1:-dev}          # dev | test | prod
 PROJECT_NAME=${2:-twin}
 
 EXPECTED_ACCOUNT="221759618907"
+
+# Pin the CLI and Terraform to the same credentials. Falls through to the
+# ambient chain (env vars, instance role) on machines without a twin profile.
+if [ -z "${AWS_PROFILE:-}" ] && aws configure list-profiles 2>/dev/null | grep -qx "twin"; then
+  export AWS_PROFILE=twin
+fi
+
 ACTUAL_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 if [ "$ACTUAL_ACCOUNT" != "$EXPECTED_ACCOUNT" ]; then
   echo "❌ Wrong AWS account: $ACTUAL_ACCOUNT (expected $EXPECTED_ACCOUNT)" >&2
+  echo "   AWS_PROFILE=${AWS_PROFILE:-<unset>}" >&2
   exit 1
 fi
 

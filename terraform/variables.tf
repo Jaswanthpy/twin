@@ -53,7 +53,16 @@ variable "root_domain" {
 }
 
 variable "aws_profile" {
-  description = "AWS profile to use for Terraform"
+  description = "AWS CLI profile to deploy with. Leave empty to use the ambient credential chain."
   type        = string
-  default     = "twin"
+  default     = ""
+}
+
+variable "aws_account_id" {
+  description = "The only AWS account this stack may be deployed into"
+  type        = string
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
+    error_message = "Account ID must be 12 digits."
+  }
 }
