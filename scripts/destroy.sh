@@ -13,13 +13,30 @@ fi
 ENVIRONMENT=$1
 PROJECT_NAME=${2:-twin}
 
+EXPECTED_ACCOUNT="221759618907"
+
+# Pin the CLI and Terraform to the same credentials. Falls through to the
+# ambient chain (env vars, instance role) on machines without a twin profile.
+if [ -z "${AWS_PROFILE:-}" ] && aws configure list-profiles 2>/dev/null | grep -qx "twin"; then
+  export AWS_PROFILE=twin
+fi
+
+# Must run before anything touches S3 - the aws s3 rm calls below bypass
+# Terraform, so its allowed_account_ids guard would fire too late.
+ACTUAL_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+if [ "$ACTUAL_ACCOUNT" != "$EXPECTED_ACCOUNT" ]; then
+  echo "❌ Wrong AWS account: $ACTUAL_ACCOUNT (expected $EXPECTED_ACCOUNT)" >&2
+  echo "   AWS_PROFILE=${AWS_PROFILE:-<unset>}" >&2
+  exit 1
+fi
+
 echo "🗑️ Preparing to destroy ${PROJECT_NAME}-${ENVIRONMENT} infrastructure..."
 
 # Navigate to terraform directory
 cd "$(dirname "$0")/../terraform"
 
 # Check if workspace exists
-if ! terraform workspace list | grep -q "$ENVIRONMENT"; then
+if ! terraform workspace list | grep -qE "^[* ] +${ENVIRONMENT}$"; then
     echo "❌ Error: Workspace '$ENVIRONMENT' does not exist"
     echo "Available workspaces:"
     terraform workspace list
@@ -29,17 +46,23 @@ fi
 # Select the workspace
 terraform workspace select "$ENVIRONMENT"
 
+echo ""
+echo "⚠️  This permanently deletes all ${PROJECT_NAME}-${ENVIRONMENT} resources in"
+echo "    account ${ACTUAL_ACCOUNT}, including every stored conversation."
+read -r -p "    Type '${ENVIRONMENT}' to confirm: " CONFIRM
+if [ "$CONFIRM" != "$ENVIRONMENT" ]; then
+    echo "❌ Aborted"
+    exit 1
+fi
+
 echo "📦 Emptying S3 buckets..."
 
-# Get AWS Account ID for bucket names
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-
-# Get bucket names with account ID
-FRONTEND_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-frontend-${AWS_ACCOUNT_ID}"
-MEMORY_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-memory-${AWS_ACCOUNT_ID}"
+# Read bucket names from state so they cannot drift from main.tf's naming
+FRONTEND_BUCKET=$(terraform output -raw s3_frontend_bucket 2>/dev/null || true)
+MEMORY_BUCKET=$(terraform output -raw s3_memory_bucket 2>/dev/null || true)
 
 # Empty frontend bucket if it exists
-if aws s3 ls "s3://$FRONTEND_BUCKET" 2>/dev/null; then
+if [ -n "$FRONTEND_BUCKET" ] && aws s3 ls "s3://$FRONTEND_BUCKET" 2>/dev/null; then
     echo "  Emptying $FRONTEND_BUCKET..."
     aws s3 rm "s3://$FRONTEND_BUCKET" --recursive
 else
@@ -47,7 +70,7 @@ else
 fi
 
 # Empty memory bucket if it exists
-if aws s3 ls "s3://$MEMORY_BUCKET" 2>/dev/null; then
+if [ -n "$MEMORY_BUCKET" ] && aws s3 ls "s3://$MEMORY_BUCKET" 2>/dev/null; then
     echo "  Emptying $MEMORY_BUCKET..."
     aws s3 rm "s3://$MEMORY_BUCKET" --recursive
 else
