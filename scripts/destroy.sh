@@ -61,13 +61,8 @@ fi
 terraform workspace select "$ENVIRONMENT"
 
 echo ""
-echo "⚠️  This permanently deletes all ${PROJECT_NAME}-${ENVIRONMENT} resources in"
+echo "⚠️  Permanently deleting all ${PROJECT_NAME}-${ENVIRONMENT} resources in"
 echo "    account ${ACTUAL_ACCOUNT}, including every stored conversation."
-read -r -p "    Type '${ENVIRONMENT}' to confirm: " CONFIRM
-if [ "$CONFIRM" != "$ENVIRONMENT" ]; then
-    echo "❌ Aborted"
-    exit 1
-fi
 
 echo "📦 Emptying S3 buckets..."
 
